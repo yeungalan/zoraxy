@@ -51,6 +51,7 @@ require (
 	github.com/nrdcg/goacmedns v0.2.0 // indirect
 	github.com/nrdcg/vegadns v0.3.0 // indirect
 	github.com/regfish/regfish-dnsapi-go v0.1.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/yandex-cloud/go-sdk/services/dns v0.0.16 // indirect
 	github.com/yandex-cloud/go-sdk/v2 v2.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
