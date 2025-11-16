@@ -124,13 +124,15 @@ func TestNewAccessController(t *testing.T) {
 	t.Run("MissingDatabase", func(t *testing.T) {
 		tempDir := createTempConfigDir(t)
 
-		mockLogger := new(MockLogger)
-		mockGeoDB := new(MockGeoDB)
+		testLogger := logger.Logger{
+			Prefix:    "test",
+			LogFolder: "",
+		}
 
 		options := &Options{
-			Logger:       mockLogger,
+			Logger:       testLogger,
 			ConfigFolder: tempDir,
-			GeoDB:        mockGeoDB,
+			GeoDB:        nil,
 			Database:     nil, // Missing database
 		}
 
@@ -144,17 +146,27 @@ func TestNewAccessController(t *testing.T) {
 		tempDir := createTempConfigDir(t)
 		configDir := filepath.Join(tempDir, "new_config_folder")
 
-		mockLogger := new(MockLogger)
-		mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
+		// Create a temporary database file
+		tempDB, err := os.CreateTemp("", "test_db_*.db")
+		assert.NoError(t, err)
+		tempDBPath := tempDB.Name()
+		tempDB.Close()
+		defer os.Remove(tempDBPath)
 
-		mockGeoDB := new(MockGeoDB)
-		mockDatabase := new(MockDatabase)
+		testLogger := logger.Logger{
+			Prefix:    "test",
+			LogFolder: "",
+		}
+
+		testDB, err := database.NewDatabase(tempDBPath, dbinc.BackendBoltDB)
+		assert.NoError(t, err)
+		defer testDB.Close()
 
 		options := &Options{
-			Logger:       mockLogger,
+			Logger:       testLogger,
 			ConfigFolder: configDir,
-			GeoDB:        mockGeoDB,
-			Database:     mockDatabase,
+			GeoDB:        nil,
+			Database:     testDB,
 		}
 
 		controller, err := NewAccessController(options)
@@ -186,17 +198,27 @@ func TestNewAccessController(t *testing.T) {
 		err := os.WriteFile(defaultFile, js, 0775)
 		assert.NoError(t, err)
 
-		mockLogger := new(MockLogger)
-		mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
+		// Create a temporary database file
+		tempDB, err := os.CreateTemp("", "test_db_*.db")
+		assert.NoError(t, err)
+		tempDBPath := tempDB.Name()
+		tempDB.Close()
+		defer os.Remove(tempDBPath)
 
-		mockGeoDB := new(MockGeoDB)
-		mockDatabase := new(MockDatabase)
+		testLogger := logger.Logger{
+			Prefix:    "test",
+			LogFolder: "",
+		}
+
+		testDB, err := database.NewDatabase(tempDBPath, dbinc.BackendBoltDB)
+		assert.NoError(t, err)
+		defer testDB.Close()
 
 		options := &Options{
-			Logger:       mockLogger,
+			Logger:       testLogger,
 			ConfigFolder: tempDir,
-			GeoDB:        mockGeoDB,
-			Database:     mockDatabase,
+			GeoDB:        nil,
+			Database:     testDB,
 		}
 
 		controller, err := NewAccessController(options)
@@ -229,17 +251,27 @@ func TestNewAccessController(t *testing.T) {
 		err := os.WriteFile(customFile, js, 0775)
 		assert.NoError(t, err)
 
-		mockLogger := new(MockLogger)
-		mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
+		// Create a temporary database file
+		tempDB, err := os.CreateTemp("", "test_db_*.db")
+		assert.NoError(t, err)
+		tempDBPath := tempDB.Name()
+		tempDB.Close()
+		defer os.Remove(tempDBPath)
 
-		mockGeoDB := new(MockGeoDB)
-		mockDatabase := new(MockDatabase)
+		testLogger := logger.Logger{
+			Prefix:    "test",
+			LogFolder: "",
+		}
+
+		testDB, err := database.NewDatabase(tempDBPath, dbinc.BackendBoltDB)
+		assert.NoError(t, err)
+		defer testDB.Close()
 
 		options := &Options{
-			Logger:       mockLogger,
+			Logger:       testLogger,
 			ConfigFolder: tempDir,
-			GeoDB:        mockGeoDB,
-			Database:     mockDatabase,
+			GeoDB:        nil,
+			Database:     testDB,
 		}
 
 		controller, err := NewAccessController(options)
@@ -259,17 +291,27 @@ func TestNewAccessController(t *testing.T) {
 	t.Run("DefaultPublicIpCheckInterval", func(t *testing.T) {
 		tempDir := createTempConfigDir(t)
 
-		mockLogger := new(MockLogger)
-		mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
+		// Create a temporary database file
+		tempDB, err := os.CreateTemp("", "test_db_*.db")
+		assert.NoError(t, err)
+		tempDBPath := tempDB.Name()
+		tempDB.Close()
+		defer os.Remove(tempDBPath)
 
-		mockGeoDB := new(MockGeoDB)
-		mockDatabase := new(MockDatabase)
+		testLogger := logger.Logger{
+			Prefix:    "test",
+			LogFolder: "",
+		}
+
+		testDB, err := database.NewDatabase(tempDBPath, dbinc.BackendBoltDB)
+		assert.NoError(t, err)
+		defer testDB.Close()
 
 		options := &Options{
-			Logger:                mockLogger,
+			Logger:                testLogger,
 			ConfigFolder:          tempDir,
-			GeoDB:                 mockGeoDB,
-			Database:              mockDatabase,
+			GeoDB:                 nil,
+			Database:              testDB,
 			PublicIpCheckInterval: 0, // Should default to 12 hours
 		}
 
@@ -421,7 +463,7 @@ func TestAccessRuleExists(t *testing.T) {
 }
 
 func TestAddNewAccessRule(t *testing.T) {
-	controller, _, _, _, tempDir := createTestController(t)
+	controller := createTestController(t); tempDir := controller.Options.ConfigFolder
 	defer controller.Close()
 
 	t.Run("Success", func(t *testing.T) {
@@ -557,7 +599,7 @@ func TestUpdateAccessRule(t *testing.T) {
 }
 
 func TestRemoveAccessRuleByID(t *testing.T) {
-	controller, _, _, _, tempDir := createTestController(t)
+	controller := createTestController(t); tempDir := controller.Options.ConfigFolder
 	defer controller.Close()
 
 	t.Run("RemoveCustomRule", func(t *testing.T) {
@@ -607,7 +649,7 @@ func TestRemoveAccessRuleByID(t *testing.T) {
 }
 
 func TestDeleteAccessRuleByID(t *testing.T) {
-	controller, _, _, _, tempDir := createTestController(t)
+	controller := createTestController(t); tempDir := controller.Options.ConfigFolder
 	defer controller.Close()
 
 	t.Run("DeleteCustomRule", func(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"imuslab.com/zoraxy/mod/geodb"
 )
 
 func TestAddCountryCodeToBlackList(t *testing.T) {

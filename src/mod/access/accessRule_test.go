@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"imuslab.com/zoraxy/mod/geodb"
 )
 
 func TestAllowIpAccess(t *testing.T) {

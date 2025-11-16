@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestUpdatePublicIP(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 	defer controller.Close()
 
 	t.Run("SuccessWithMockServer", func(t *testing.T) {
@@ -324,16 +323,13 @@ func TestIsPrivateIPRange_InvalidIP(t *testing.T) {
 }
 
 func TestStartPublicIPUpdater(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 	defer controller.Close()
 
 	t.Run("TickerCreated", func(t *testing.T) {
 		// Set a short interval for testing
 		controller.Options.PublicIpCheckInterval = 1 // 1 second
 
-		mockLogger.On("PrintAndLog", "access", mock.MatchedBy(func(msg string) bool {
-			return true
-		}), mock.Anything).Maybe()
 
 		// Start the updater
 		controller.StartPublicIPUpdater()
@@ -351,14 +347,11 @@ func TestStartPublicIPUpdater(t *testing.T) {
 }
 
 func TestStopPublicIPUpdater(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 
 	t.Run("StopWhenRunning", func(t *testing.T) {
 		controller.Options.PublicIpCheckInterval = 1
 
-		mockLogger.On("PrintAndLog", "access", mock.MatchedBy(func(msg string) bool {
-			return true
-		}), mock.Anything).Maybe()
 
 		// Start the updater
 		controller.StartPublicIPUpdater()
@@ -392,12 +385,9 @@ func TestStopPublicIPUpdater(t *testing.T) {
 }
 
 func TestPublicIPUpdaterLifecycle(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 	defer controller.Close()
 
-	mockLogger.On("PrintAndLog", "access", mock.MatchedBy(func(msg string) bool {
-		return true
-	}), mock.Anything).Maybe()
 
 	t.Run("StartStopCycle", func(t *testing.T) {
 		controller.Options.PublicIpCheckInterval = 1
@@ -423,10 +413,9 @@ func TestPublicIPUpdaterLifecycle(t *testing.T) {
 }
 
 func TestLoopbackIntegration(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 	defer controller.Close()
 
-	mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 	t.Run("LoopbackWithWhitelist", func(t *testing.T) {
 		rule := controller.DefaultAccessRule
@@ -493,10 +482,9 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestConcurrentPublicIPUpdates(t *testing.T) {
-	controller, mockLogger, _, _, _ := createTestController(t)
+	controller := createTestController(t)
 	defer controller.Close()
 
-	mockLogger.On("PrintAndLog", mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 	t.Run("ConcurrentReads", func(t *testing.T) {
 		controller.ServerPublicIP = "203.0.113.100"
