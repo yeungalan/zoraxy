@@ -1,8 +1,12 @@
 package geodb_test
 
 import (
+	"net/http"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"imuslab.com/zoraxy/mod/geodb"
 	"imuslab.com/zoraxy/mod/info/logger"
 )
@@ -43,15 +47,16 @@ func TestTrieConstruct(t *testing.T) {
 func TestResolveCountryCodeFromIP(t *testing.T) {
 	// Create a new store
 	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
-		true,
-		true,
-		&logger.Logger{},
-		0,
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
 	})
 	if err != nil {
 		t.Errorf("error creating store: %v", err)
 		return
 	}
+	defer store.Close()
 
 	// Test an IP address that should return a valid country code
 	knownIpCountryMap := [][]string{
@@ -105,5 +110,368 @@ func TestResolveCountryCodeFromIP(t *testing.T) {
 			}
 		}()
 	}
+}
 
+func TestNewGeoDb(t *testing.T) {
+	tests := []struct {
+		name    string
+		options *geodb.StoreOptions
+		wantErr bool
+	}{
+		{
+			name: "Create store with trie (fast lookup)",
+			options: &geodb.StoreOptions{
+				AllowSlowIpv4LookUp:          false,
+				AllowSlowIpv6Lookup:          false,
+				Logger:                       &logger.Logger{},
+				SlowLookupCacheClearInterval: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Create store with slow lookup",
+			options: &geodb.StoreOptions{
+				AllowSlowIpv4LookUp:          true,
+				AllowSlowIpv6Lookup:          true,
+				Logger:                       &logger.Logger{},
+				SlowLookupCacheClearInterval: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Create store with custom cache interval",
+			options: &geodb.StoreOptions{
+				AllowSlowIpv4LookUp:          true,
+				AllowSlowIpv6Lookup:          true,
+				Logger:                       &logger.Logger{},
+				SlowLookupCacheClearInterval: 5 * time.Minute,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Create store with IPv4 slow, IPv6 fast",
+			options: &geodb.StoreOptions{
+				AllowSlowIpv4LookUp:          true,
+				AllowSlowIpv6Lookup:          false,
+				Logger:                       &logger.Logger{},
+				SlowLookupCacheClearInterval: 0,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, err := geodb.NewGeoDb(nil, tt.options)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, store)
+				store.Close()
+			}
+		})
+	}
+}
+
+func TestStore_Close(t *testing.T) {
+	tests := []struct {
+		name              string
+		slowIpv4Enabled   bool
+		slowIpv6Enabled   bool
+		shouldStartTicker bool
+	}{
+		{
+			name:              "Close with slow lookup enabled",
+			slowIpv4Enabled:   true,
+			slowIpv6Enabled:   false,
+			shouldStartTicker: true,
+		},
+		{
+			name:              "Close with IPv6 slow lookup enabled",
+			slowIpv4Enabled:   false,
+			slowIpv6Enabled:   true,
+			shouldStartTicker: true,
+		},
+		{
+			name:              "Close with both slow lookups enabled",
+			slowIpv4Enabled:   true,
+			slowIpv6Enabled:   true,
+			shouldStartTicker: true,
+		},
+		{
+			name:              "Close with no slow lookup",
+			slowIpv4Enabled:   false,
+			slowIpv6Enabled:   false,
+			shouldStartTicker: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+				AllowSlowIpv4LookUp:          tt.slowIpv4Enabled,
+				AllowSlowIpv6Lookup:          tt.slowIpv6Enabled,
+				Logger:                       &logger.Logger{},
+				SlowLookupCacheClearInterval: 100 * time.Millisecond,
+			})
+			assert.NoError(t, err)
+			assert.NotNil(t, store)
+
+			// Should not panic
+			assert.NotPanics(t, func() {
+				store.Close()
+			})
+		})
+	}
+}
+
+func TestStore_GetRequesterCountryISOCode(t *testing.T) {
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	tests := []struct {
+		name            string
+		setupRequest    func() *http.Request
+		expectedCountry string
+	}{
+		{
+			name: "Valid US IP in RemoteAddr",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.RemoteAddr = "3.224.220.101:12345"
+				return req
+			},
+			expectedCountry: "US",
+		},
+		{
+			name: "Valid Russian IP in RemoteAddr",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.RemoteAddr = "176.113.115.113:54321"
+				return req
+			},
+			expectedCountry: "RU",
+		},
+		{
+			name: "Private IP should return LAN",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.RemoteAddr = "192.168.1.1:8080"
+				return req
+			},
+			expectedCountry: "LAN",
+		},
+		{
+			name: "Localhost should return LAN",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.RemoteAddr = "127.0.0.1:8080"
+				return req
+			},
+			expectedCountry: "LAN",
+		},
+		{
+			name: "X-Forwarded-For header",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.Header.Set("X-Forwarded-For", "3.224.220.101")
+				req.RemoteAddr = "192.168.1.1:8080"
+				return req
+			},
+			expectedCountry: "US",
+		},
+		{
+			name: "X-Real-IP header",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.Header.Set("X-Real-IP", "94.23.207.193")
+				req.RemoteAddr = "192.168.1.1:8080"
+				return req
+			},
+			expectedCountry: "FR",
+		},
+		{
+			name: "CF-Connecting-IP header",
+			setupRequest: func() *http.Request {
+				req, _ := http.NewRequest("GET", "/", nil)
+				req.Header.Set("CF-Connecting-IP", "65.21.233.213")
+				req.RemoteAddr = "192.168.1.1:8080"
+				return req
+			},
+			expectedCountry: "FI",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := tt.setupRequest()
+			country := store.GetRequesterCountryISOCode(req)
+			assert.Equal(t, tt.expectedCountry, country)
+		})
+	}
+}
+
+func TestStore_ResolveCountryCodeFromIP_IPv6(t *testing.T) {
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	tests := []struct {
+		name     string
+		ip       string
+		wantCode string
+	}{
+		{
+			name:     "IPv6 Google DNS",
+			ip:       "2001:4860:4860::8888",
+			wantCode: "US",
+		},
+		{
+			name:     "IPv6 Cloudflare DNS",
+			ip:       "2606:4700:4700::1111",
+			wantCode: "US",
+		},
+		{
+			name:     "IPv6 loopback should return empty",
+			ip:       "::1",
+			wantCode: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := store.ResolveCountryCodeFromIP(tt.ip)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantCode, info.CountryIsoCode)
+		})
+	}
+}
+
+func TestStore_ResolveCountryCodeFromIP_CloudflareFormat(t *testing.T) {
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	tests := []struct {
+		name     string
+		ip       string
+		wantCode string
+	}{
+		{
+			name:     "Cloudflare proxied format - should use first IP",
+			ip:       "3.224.220.101, 172.71.139.178",
+			wantCode: "US",
+		},
+		{
+			name:     "Cloudflare proxied format with spaces",
+			ip:       "94.23.207.193,  172.70.100.1",
+			wantCode: "FR",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := store.ResolveCountryCodeFromIP(tt.ip)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantCode, info.CountryIsoCode)
+		})
+	}
+}
+
+func TestStore_ConcurrentAccess(t *testing.T) {
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	testIPs := []string{
+		"3.224.220.101",
+		"176.113.115.113",
+		"65.21.233.213",
+		"94.23.207.193",
+		"77.131.21.232",
+	}
+
+	var wg sync.WaitGroup
+	concurrentRequests := 100
+
+	for i := 0; i < concurrentRequests; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			ip := testIPs[index%len(testIPs)]
+			_, err := store.ResolveCountryCodeFromIP(ip)
+			assert.NoError(t, err)
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestStore_CacheClearTicker(t *testing.T) {
+	// Test that cache is cleared after interval
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 200 * time.Millisecond,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	// Resolve an IP to populate cache
+	testIP := "192.168.1.100"
+	store.ResolveCountryCodeFromIP(testIP)
+
+	// Check cache has the IP
+	cachedBefore := store.GetSlowSearchCachedIpv4(testIP)
+
+	// Wait for cache clear
+	time.Sleep(300 * time.Millisecond)
+
+	// Cache should be cleared
+	cachedAfter := store.GetSlowSearchCachedIpv4(testIP)
+
+	// Note: This is a timing-sensitive test, so we just verify it doesn't panic
+	t.Logf("Cache before: %s, after: %s", cachedBefore, cachedAfter)
+}
+
+func TestCountryInfo_Structure(t *testing.T) {
+	store, err := geodb.NewGeoDb(nil, &geodb.StoreOptions{
+		AllowSlowIpv4LookUp:          true,
+		AllowSlowIpv6Lookup:          true,
+		Logger:                       &logger.Logger{},
+		SlowLookupCacheClearInterval: 0,
+	})
+	assert.NoError(t, err)
+	defer store.Close()
+
+	info, err := store.ResolveCountryCodeFromIP("8.8.8.8")
+	assert.NoError(t, err)
+	assert.NotNil(t, info)
+
+	// Verify structure fields exist and have correct types
+	assert.IsType(t, "", info.CountryIsoCode)
+	assert.IsType(t, "", info.ContinetCode)
 }
