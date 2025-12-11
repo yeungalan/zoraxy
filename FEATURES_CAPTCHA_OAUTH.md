@@ -260,23 +260,31 @@ curl -X POST http://localhost:8000/api/oauth-access/providers/add \
 
 #### Enable OAuth Access on a Proxy Endpoint
 
-When creating or updating a proxy endpoint, set the authentication method to OAuth Access:
+**Via Web UI:**
+1. Go to your proxy endpoint settings
+2. In the "Authentication" section, select "OAuth Access" from the dropdown
+3. Save the configuration
 
-```json
-{
-  "authentication_provider": {
-    "auth_method": 4,
-    "oauth_access_enabled": true
-  }
-}
+**Via API:**
+When creating or updating a proxy endpoint, set the `authProviderType` parameter to `4`:
+
+```bash
+# Example: Update existing proxy endpoint to use OAuth Access
+curl -X POST http://localhost:8000/api/proxy/edit \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "rootname=example.com" \
+  -d "authProviderType=4" \
+  # ... other required parameters
 ```
 
-The `auth_method` values are:
+The `authProviderType` values are:
 - `0` - No authentication
 - `1` - Basic Auth
 - `2` - Forward Auth
 - `3` - OAuth2 (existing SSO)
 - `4` - OAuth Access (new feature)
+
+**Important**: OAuth Access uses the first enabled OAuth provider configured in the system. Make sure you have configured and enabled at least one OAuth provider before setting an endpoint to use OAuth Access authentication.
 
 #### Check Authentication Status
 
