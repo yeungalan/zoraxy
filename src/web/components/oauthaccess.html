@@ -1,0 +1,470 @@
+<div class="ui container">
+    <h1 class="ui header">
+        <i class="key icon"></i>
+        <div class="content">
+            OAuth Access
+            <div class="sub header">Protect endpoints with OAuth 2.0 authentication (similar to Cloudflare Access)</div>
+        </div>
+    </h1>
+
+    <div class="ui info message">
+        <div class="header">How OAuth Access Works</div>
+        <p>OAuth Access protects your proxy endpoints with OAuth 2.0 authentication. When enabled on an endpoint:</p>
+        <ol>
+            <li>Users visiting the endpoint are redirected to your OAuth provider (Google, GitHub, Azure AD, etc.)</li>
+            <li>After successful authentication, users are redirected back to Zoraxy</li>
+            <li>Zoraxy validates the user and creates a session</li>
+            <li>Users can access the protected endpoint for the session duration</li>
+        </ol>
+    </div>
+
+    <div class="ui divider"></div>
+
+    <h3 class="ui header">
+        OAuth Providers
+        <button class="ui primary right floated button" onclick="showAddProviderModal()">
+            <i class="plus icon"></i> Add Provider
+        </button>
+    </h3>
+
+    <div id="providersContainer">
+        <div class="ui active centered inline loader"></div>
+    </div>
+
+    <div class="ui divider"></div>
+
+    <h3 class="ui header">Statistics</h3>
+    <div class="ui statistics">
+        <div class="statistic">
+            <div class="value" id="activeSessionsCount">
+                <i class="users icon"></i> 0
+            </div>
+            <div class="label">Active Sessions</div>
+        </div>
+        <div class="statistic">
+            <div class="value" id="providersCount">
+                <i class="server icon"></i> 0
+            </div>
+            <div class="label">Configured Providers</div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Provider Modal -->
+<div class="ui modal" id="providerModal">
+    <div class="header">
+        <span id="modalTitle">Add OAuth Provider</span>
+    </div>
+    <div class="content">
+        <div class="ui form">
+            <div class="field">
+                <label>Provider ID</label>
+                <input type="text" id="providerId" placeholder="e.g., google, github, azure">
+                <small>Unique identifier for this provider (lowercase, no spaces)</small>
+            </div>
+
+            <div class="field">
+                <label>Provider Name</label>
+                <input type="text" id="providerName" placeholder="e.g., Google OAuth">
+                <small>Display name for this provider</small>
+            </div>
+
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="providerEnabled">
+                    <label>Enable this provider</label>
+                </div>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <h4 class="ui header">OAuth Configuration</h4>
+
+            <div class="two fields">
+                <div class="field">
+                    <label>Client ID</label>
+                    <input type="text" id="providerClientId" placeholder="OAuth client ID">
+                </div>
+                <div class="field">
+                    <label>Client Secret</label>
+                    <input type="password" id="providerClientSecret" placeholder="OAuth client secret">
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Authorization URL</label>
+                <input type="text" id="providerAuthUrl" placeholder="https://accounts.google.com/o/oauth2/v2/auth">
+                <small>URL for user authorization</small>
+            </div>
+
+            <div class="field">
+                <label>Token URL</label>
+                <input type="text" id="providerTokenUrl" placeholder="https://oauth2.googleapis.com/token">
+                <small>URL for token exchange</small>
+            </div>
+
+            <div class="field">
+                <label>User Info URL</label>
+                <input type="text" id="providerUserInfoUrl" placeholder="https://www.googleapis.com/oauth2/v2/userinfo">
+                <small>URL to retrieve user information</small>
+            </div>
+
+            <div class="field">
+                <label>Scopes (comma-separated)</label>
+                <input type="text" id="providerScopes" placeholder="openid, email, profile">
+                <small>OAuth scopes to request</small>
+            </div>
+
+            <div class="field">
+                <label>Redirect URL</label>
+                <input type="text" id="providerRedirectUrl" placeholder="https://your-domain.com/.zoraxy/oauth/callback">
+                <small>Must match the redirect URI configured in your OAuth app</small>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <h4 class="ui header">Access Control</h4>
+
+            <div class="field">
+                <label>Allowed Email Domains (comma-separated, leave empty for all)</label>
+                <input type="text" id="providerAllowedDomains" placeholder="example.com, company.com">
+                <small>Only allow users with emails from these domains</small>
+            </div>
+
+            <div class="field">
+                <label>Allowed Emails (comma-separated, leave empty for all)</label>
+                <input type="text" id="providerAllowedEmails" placeholder="admin@example.com, user@example.com">
+                <small>Only allow these specific email addresses</small>
+            </div>
+
+            <div class="field">
+                <div class="ui checkbox">
+                    <input type="checkbox" id="providerRequireEmailVerify">
+                    <label>Require verified email</label>
+                </div>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <h4 class="ui header">Session Settings</h4>
+
+            <div class="field">
+                <label>Session Duration (seconds)</label>
+                <input type="number" id="providerSessionDuration" placeholder="3600" value="3600">
+                <small>How long users stay authenticated. Default: 3600 (1 hour)</small>
+            </div>
+        </div>
+    </div>
+    <div class="actions">
+        <div class="ui cancel button">Cancel</div>
+        <div class="ui primary button" onclick="saveProvider()">Save Provider</div>
+    </div>
+</div>
+
+<!-- Quick Setup Modal for Common Providers -->
+<div class="ui small modal" id="quickSetupModal">
+    <div class="header">Quick Setup - Select Provider</div>
+    <div class="content">
+        <div class="ui three cards">
+            <div class="card link" onclick="quickSetupProvider('google')">
+                <div class="content">
+                    <div class="header"><i class="google icon"></i> Google</div>
+                    <div class="description">Google OAuth 2.0</div>
+                </div>
+            </div>
+            <div class="card link" onclick="quickSetupProvider('github')">
+                <div class="content">
+                    <div class="header"><i class="github icon"></i> GitHub</div>
+                    <div class="description">GitHub OAuth</div>
+                </div>
+            </div>
+            <div class="card link" onclick="quickSetupProvider('azure')">
+                <div class="content">
+                    <div class="header"><i class="microsoft icon"></i> Azure AD</div>
+                    <div class="description">Microsoft Azure Active Directory</div>
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <button class="ui button" onclick="$('#quickSetupModal').modal('hide'); showAddProviderModal();">
+            Manual Configuration
+        </button>
+    </div>
+</div>
+
+<script>
+    let editingProviderId = null;
+
+    $(document).ready(function() {
+        loadProviders();
+        loadStats();
+
+        // Refresh stats every 30 seconds
+        setInterval(loadStats, 30000);
+    });
+
+    function loadProviders() {
+        $('#providersContainer').html('<div class="ui active centered inline loader"></div>');
+
+        $.ajax({
+            url: '/api/oauth-access/providers/list',
+            method: 'GET',
+            success: function(data) {
+                displayProviders(data || []);
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load providers:', error);
+                $('#providersContainer').html(
+                    '<div class="ui warning message">Failed to load providers. ' + error + '</div>'
+                );
+            }
+        });
+    }
+
+    function displayProviders(providers) {
+        if (providers.length === 0) {
+            $('#providersContainer').html(
+                '<div class="ui placeholder segment">' +
+                '<div class="ui icon header">' +
+                '<i class="key icon"></i>' +
+                'No OAuth providers configured' +
+                '</div>' +
+                '<button class="ui primary button" onclick="showQuickSetup()">Quick Setup</button> ' +
+                '<button class="ui button" onclick="showAddProviderModal()">Add Provider</button>' +
+                '</div>'
+            );
+            return;
+        }
+
+        let html = '<div class="ui cards">';
+        providers.forEach(function(provider) {
+            const statusClass = provider.enabled ? 'green' : 'grey';
+            const statusText = provider.enabled ? 'Enabled' : 'Disabled';
+
+            html += `
+                <div class="card">
+                    <div class="content">
+                        <div class="right floated">
+                            <span class="ui ${statusClass} label">${statusText}</span>
+                        </div>
+                        <div class="header">${escapeHtml(provider.name)}</div>
+                        <div class="meta">${escapeHtml(provider.id)}</div>
+                        <div class="description">
+                            <p><small><b>Redirect URL:</b> ${escapeHtml(provider.redirect_url || 'Not configured')}</small></p>
+                            ${provider.allowed_domains && provider.allowed_domains.length > 0 ?
+                                '<p><small><b>Allowed Domains:</b> ' + provider.allowed_domains.join(', ') + '</small></p>' : ''}
+                            ${provider.allowed_emails && provider.allowed_emails.length > 0 ?
+                                '<p><small><b>Allowed Emails:</b> ' + provider.allowed_emails.join(', ') + '</small></p>' : ''}
+                        </div>
+                    </div>
+                    <div class="extra content">
+                        <button class="ui small button" onclick="editProvider('${provider.id}')">
+                            <i class="edit icon"></i> Edit
+                        </button>
+                        <button class="ui small red button" onclick="deleteProvider('${provider.id}')">
+                            <i class="trash icon"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        $('#providersContainer').html(html);
+    }
+
+    function showQuickSetup() {
+        $('#quickSetupModal').modal('show');
+    }
+
+    function quickSetupProvider(type) {
+        $('#quickSetupModal').modal('hide');
+
+        const templates = {
+            google: {
+                id: 'google',
+                name: 'Google OAuth',
+                auth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
+                token_url: 'https://oauth2.googleapis.com/token',
+                userinfo_url: 'https://www.googleapis.com/oauth2/v2/userinfo',
+                scopes: 'openid,email,profile'
+            },
+            github: {
+                id: 'github',
+                name: 'GitHub OAuth',
+                auth_url: 'https://github.com/login/oauth/authorize',
+                token_url: 'https://github.com/login/oauth/access_token',
+                userinfo_url: 'https://api.github.com/user',
+                scopes: 'read:user,user:email'
+            },
+            azure: {
+                id: 'azure',
+                name: 'Azure AD',
+                auth_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+                token_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+                userinfo_url: 'https://graph.microsoft.com/v1.0/me',
+                scopes: 'openid,email,profile'
+            }
+        };
+
+        const template = templates[type];
+        if (template) {
+            $('#providerId').val(template.id);
+            $('#providerName').val(template.name);
+            $('#providerAuthUrl').val(template.auth_url);
+            $('#providerTokenUrl').val(template.token_url);
+            $('#providerUserInfoUrl').val(template.userinfo_url);
+            $('#providerScopes').val(template.scopes);
+            $('#providerEnabled').prop('checked', false);
+            $('#providerModal').modal('show');
+        }
+    }
+
+    function showAddProviderModal() {
+        editingProviderId = null;
+        $('#modalTitle').text('Add OAuth Provider');
+        $('#providerModal form')[0].reset();
+        $('#providerSessionDuration').val('3600');
+        $('.ui.checkbox').checkbox();
+        $('#providerModal').modal('show');
+    }
+
+    function editProvider(providerId) {
+        editingProviderId = providerId;
+        $('#modalTitle').text('Edit OAuth Provider');
+
+        $.ajax({
+            url: '/api/oauth-access/providers/get?id=' + encodeURIComponent(providerId),
+            method: 'GET',
+            success: function(provider) {
+                $('#providerId').val(provider.id).prop('disabled', true);
+                $('#providerName').val(provider.name);
+                $('#providerEnabled').prop('checked', provider.enabled);
+                $('#providerClientId').val(provider.client_id);
+                $('#providerClientSecret').val('');
+                $('#providerClientSecret').attr('placeholder', '••••••••');
+                $('#providerAuthUrl').val(provider.auth_url);
+                $('#providerTokenUrl').val(provider.token_url);
+                $('#providerUserInfoUrl').val(provider.userinfo_url);
+                $('#providerScopes').val((provider.scopes || []).join(', '));
+                $('#providerRedirectUrl').val(provider.redirect_url);
+                $('#providerAllowedDomains').val((provider.allowed_domains || []).join(', '));
+                $('#providerAllowedEmails').val((provider.allowed_emails || []).join(', '));
+                $('#providerRequireEmailVerify').prop('checked', provider.require_email_verify);
+                $('#providerSessionDuration').val(provider.session_duration || 3600);
+
+                $('.ui.checkbox').checkbox();
+                $('#providerModal').modal('show');
+            },
+            error: function(xhr, status, error) {
+                msgbox('Failed to load provider details: ' + error, false);
+            }
+        });
+    }
+
+    function saveProvider() {
+        const provider = {
+            id: $('#providerId').val().trim().toLowerCase(),
+            name: $('#providerName').val().trim(),
+            enabled: $('#providerEnabled').is(':checked'),
+            client_id: $('#providerClientId').val().trim(),
+            client_secret: $('#providerClientSecret').val().trim(),
+            auth_url: $('#providerAuthUrl').val().trim(),
+            token_url: $('#providerTokenUrl').val().trim(),
+            userinfo_url: $('#providerUserInfoUrl').val().trim(),
+            scopes: $('#providerScopes').val().split(',').map(s => s.trim()).filter(s => s),
+            redirect_url: $('#providerRedirectUrl').val().trim(),
+            allowed_domains: $('#providerAllowedDomains').val().split(',').map(s => s.trim()).filter(s => s),
+            allowed_emails: $('#providerAllowedEmails').val().split(',').map(s => s.trim()).filter(s => s),
+            require_email_verify: $('#providerRequireEmailVerify').is(':checked'),
+            session_duration: parseInt($('#providerSessionDuration').val()) || 3600
+        };
+
+        // Validation
+        if (!provider.id || !provider.name) {
+            msgbox('Provider ID and name are required', false);
+            return;
+        }
+        if (!provider.client_id || (!provider.client_secret && !editingProviderId)) {
+            msgbox('Client ID and secret are required', false);
+            return;
+        }
+        if (!provider.auth_url || !provider.token_url || !provider.userinfo_url) {
+            msgbox('Auth URL, Token URL, and User Info URL are required', false);
+            return;
+        }
+
+        // If editing and secret is empty, don't send it
+        if (editingProviderId && !provider.client_secret) {
+            delete provider.client_secret;
+        }
+
+        $.ajax({
+            url: '/api/oauth-access/providers/add',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(provider),
+            success: function(data) {
+                msgbox('Provider saved successfully', true);
+                $('#providerModal').modal('hide');
+                $('#providerId').prop('disabled', false);
+                loadProviders();
+                loadStats();
+            },
+            error: function(xhr, status, error) {
+                const errorMsg = xhr.responseText || 'Failed to save provider';
+                msgbox(errorMsg, false);
+            }
+        });
+    }
+
+    function deleteProvider(providerId) {
+        if (!confirm('Are you sure you want to delete this provider?')) {
+            return;
+        }
+
+        $.ajax({
+            url: '/api/oauth-access/providers/delete?id=' + encodeURIComponent(providerId),
+            method: 'POST',
+            success: function(data) {
+                msgbox('Provider deleted successfully', true);
+                loadProviders();
+                loadStats();
+            },
+            error: function(xhr, status, error) {
+                msgbox('Failed to delete provider: ' + error, false);
+            }
+        });
+    }
+
+    function loadStats() {
+        $.ajax({
+            url: '/api/oauth-access/stats',
+            method: 'GET',
+            success: function(data) {
+                $('#activeSessionsCount').html('<i class="users icon"></i> ' + (data.active_sessions || 0));
+                $('#providersCount').html('<i class="server icon"></i> ' + (data.providers_count || 0));
+            },
+            error: function() {
+                $('#activeSessionsCount').html('<i class="users icon"></i> N/A');
+                $('#providersCount').html('<i class="server icon"></i> N/A');
+            }
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+
+<style>
+    .ui.cards > .card {
+        min-width: 300px;
+    }
+    .placeholder.segment {
+        padding: 3em;
+    }
+</style>

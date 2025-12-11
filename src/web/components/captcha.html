@@ -1,0 +1,224 @@
+<div class="ui container">
+    <h1 class="ui header">
+        <i class="shield alternate icon"></i>
+        <div class="content">
+            Captcha Verification
+            <div class="sub header">Configure bot protection with Google reCAPTCHA or Cloudflare Turnstile</div>
+        </div>
+    </h1>
+
+    <div class="ui top attached tabular menu">
+        <a class="item active" data-tab="config_tab">Configuration</a>
+        <a class="item" data-tab="stats_tab">Statistics</a>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div class="ui bottom attached tab segment active" data-tab="config_tab">
+        <h3 class="ui header">Captcha Settings</h3>
+        <p>Protect your sites from bots and automated attacks. Enable captcha to require all visitors to complete a verification challenge before accessing your sites.</p>
+
+        <div class="ui form">
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="captchaEnabled">
+                    <label><b>Enable Captcha Protection</b></label>
+                </div>
+                <small>When enabled, all visitors must complete a captcha challenge before accessing proxied sites</small>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <div class="field">
+                <label><b>Captcha Provider</b></label>
+                <select class="ui dropdown" id="captchaProvider">
+                    <option value="disabled">Disabled</option>
+                    <option value="google_recaptcha">Google reCAPTCHA</option>
+                    <option value="cloudflare_turnstile">Cloudflare Turnstile</option>
+                </select>
+                <small>Choose your preferred captcha provider</small>
+            </div>
+
+            <div class="field">
+                <label><b>Site Key</b></label>
+                <input type="text" id="captchaSiteKey" placeholder="Enter your site key">
+                <small>Public key for the captcha provider (visible to users)</small>
+            </div>
+
+            <div class="field">
+                <label><b>Secret Key</b></label>
+                <input type="password" id="captchaSecretKey" placeholder="Enter your secret key">
+                <small>Secret key for verifying captcha responses (keep this secure)</small>
+            </div>
+
+            <div class="field" id="thresholdField" style="display: none;">
+                <label><b>Score Threshold (reCAPTCHA v3)</b></label>
+                <input type="number" id="captchaThreshold" placeholder="0.5" min="0" max="1" step="0.1" value="0.5">
+                <small>Minimum score required to pass (0.0 = bot, 1.0 = human). Default: 0.5</small>
+            </div>
+
+            <div class="field">
+                <label><b>Session Duration (seconds)</b></label>
+                <input type="number" id="captchaExpiry" placeholder="3600" value="3600">
+                <small>How long a verified session remains valid. Default: 3600 (1 hour)</small>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <button class="ui primary button" onclick="saveCaptchaConfig()">
+                <i class="save icon"></i> Save Configuration
+            </button>
+            <button class="ui button" onclick="loadCaptchaConfig()">
+                <i class="refresh icon"></i> Reload
+            </button>
+        </div>
+
+        <div class="ui divider"></div>
+
+        <div class="ui info message">
+            <div class="header">Getting Started</div>
+            <ul class="list">
+                <li><b>Google reCAPTCHA:</b> Get your keys at <a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">google.com/recaptcha/admin</a></li>
+                <li><b>Cloudflare Turnstile:</b> Get your keys at <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener">Cloudflare Dashboard</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div class="ui bottom attached tab segment" data-tab="stats_tab">
+        <h3 class="ui header">Captcha Statistics</h3>
+
+        <div class="ui statistic">
+            <div class="value" id="activeSessions">
+                <i class="users icon"></i> 0
+            </div>
+            <div class="label">
+                Active Sessions
+            </div>
+        </div>
+
+        <div class="ui divider"></div>
+
+        <p><small>Active sessions represent users who have successfully completed the captcha challenge and have valid verification sessions.</small></p>
+    </div>
+</div>
+
+<script>
+    // Initialize tabs
+    $('.menu .item').tab();
+
+    // Show/hide threshold field based on provider
+    $('#captchaProvider').change(function() {
+        if ($(this).val() === 'google_recaptcha') {
+            $('#thresholdField').show();
+        } else {
+            $('#thresholdField').hide();
+        }
+    });
+
+    // Load captcha configuration on page load
+    $(document).ready(function() {
+        loadCaptchaConfig();
+        loadCaptchaStats();
+
+        // Refresh stats every 30 seconds
+        setInterval(loadCaptchaStats, 30000);
+    });
+
+    function loadCaptchaConfig() {
+        $.ajax({
+            url: '/api/captcha/config',
+            method: 'GET',
+            success: function(data) {
+                $('#captchaEnabled').prop('checked', data.enabled);
+                $('#captchaProvider').val(data.provider || 'disabled');
+                $('#captchaSiteKey').val(data.site_key || '');
+                $('#captchaThreshold').val(data.threshold || 0.5);
+                $('#captchaExpiry').val(data.expiry_time || 3600);
+
+                // Show threshold field if Google reCAPTCHA
+                if (data.provider === 'google_recaptcha') {
+                    $('#thresholdField').show();
+                }
+
+                // Secret key is not returned for security, leave it blank
+                $('#captchaSecretKey').val('');
+                $('#captchaSecretKey').attr('placeholder', data.secret_key ? '••••••••' : 'Enter your secret key');
+
+                $('.ui.dropdown').dropdown();
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load captcha config:', error);
+                msgbox('Failed to load captcha configuration', false);
+            }
+        });
+    }
+
+    function saveCaptchaConfig() {
+        const config = {
+            enabled: $('#captchaEnabled').is(':checked'),
+            provider: $('#captchaProvider').val(),
+            site_key: $('#captchaSiteKey').val(),
+            secret_key: $('#captchaSecretKey').val(),
+            threshold: parseFloat($('#captchaThreshold').val()) || 0.5,
+            expiry_time: parseInt($('#captchaExpiry').val()) || 3600
+        };
+
+        // Validation
+        if (config.enabled) {
+            if (config.provider === 'disabled') {
+                msgbox('Please select a captcha provider', false);
+                return;
+            }
+            if (!config.site_key) {
+                msgbox('Please enter a site key', false);
+                return;
+            }
+            if (!config.secret_key && $('#captchaSecretKey').attr('placeholder') !== '••••••••') {
+                msgbox('Please enter a secret key', false);
+                return;
+            }
+        }
+
+        // If secret key is empty and placeholder shows it's already set, don't send it
+        if (!config.secret_key && $('#captchaSecretKey').attr('placeholder') === '••••••••') {
+            delete config.secret_key;
+        }
+
+        $.ajax({
+            url: '/api/captcha/update',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(config),
+            success: function(data) {
+                msgbox('Captcha configuration saved successfully', true);
+                loadCaptchaConfig();
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to save captcha config:', error);
+                const errorMsg = xhr.responseText || 'Failed to save configuration';
+                msgbox(errorMsg, false);
+            }
+        });
+    }
+
+    function loadCaptchaStats() {
+        $.ajax({
+            url: '/api/captcha/session/check',
+            method: 'GET',
+            success: function(data) {
+                // This endpoint returns session count (we need to add this to the API)
+                // For now, show 0 as placeholder
+                $('#activeSessions').html('<i class="users icon"></i> N/A');
+            },
+            error: function() {
+                $('#activeSessions').html('<i class="users icon"></i> N/A');
+            }
+        });
+    }
+</script>
+
+<style>
+    .ui.statistic {
+        margin: 2em 0;
+    }
+</style>
