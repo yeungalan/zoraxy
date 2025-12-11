@@ -18,7 +18,9 @@ import (
 	"imuslab.com/zoraxy/mod/access"
 	"imuslab.com/zoraxy/mod/acme"
 	"imuslab.com/zoraxy/mod/auth"
+	"imuslab.com/zoraxy/mod/auth/oauthaccess"
 	"imuslab.com/zoraxy/mod/auth/sso/forward"
+	"imuslab.com/zoraxy/mod/captcha"
 	"imuslab.com/zoraxy/mod/database"
 	"imuslab.com/zoraxy/mod/dockerux"
 	"imuslab.com/zoraxy/mod/dynamicproxy/loadbalance"
@@ -164,8 +166,12 @@ var (
 	pluginApiKeyManager *auth.APIKeyManager //API key manager for plugin authentication
 
 	//Authentication Provider
-	forwardAuthRouter *forward.AuthRouter  // Forward Auth router for Authelia/Authentik/etc authentication
-	oauth2Router      *oauth2.OAuth2Router //OAuth2Router router for OAuth2Router authentication
+	forwardAuthRouter *forward.AuthRouter     // Forward Auth router for Authelia/Authentik/etc authentication
+	oauth2Router      *oauth2.OAuth2Router    //OAuth2Router router for OAuth2Router authentication
+	oauthAccessRouter *oauthaccess.Manager    //OAuth Access router for Cloudflare Access-like endpoint protection
+
+	//Captcha Manager
+	captchaManager *captcha.Manager //Captcha manager for Google reCAPTCHA and Cloudflare Turnstile
 
 	//Helper modules
 	EmailSender       *email.Sender         //Email sender that handle email sending

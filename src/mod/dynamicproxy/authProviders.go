@@ -53,6 +53,12 @@ func handleAuthProviderRouting(sep *ProxyEndpoint, w http.ResponseWriter, r *htt
 			h.Parent.Option.Logger.LogHTTPRequest(r, "host-http", 401, requestHostname, "")
 			return true
 		}
+	case AuthMethodOAuthAccess:
+		err := h.handleOAuthAccessAuth(w, r)
+		if err != nil {
+			h.Parent.Option.Logger.LogHTTPRequest(r, "host-http", 401, requestHostname, "")
+			return true
+		}
 	}
 
 	//No authentication provider, do not need to handle
@@ -145,4 +151,34 @@ func (h *ProxyHandler) handleForwardAuth(w http.ResponseWriter, r *http.Request)
 
 func (h *ProxyHandler) handleOAuth2Auth(w http.ResponseWriter, r *http.Request) error {
 	return h.Parent.Option.OAuth2Router.HandleOAuth2Auth(w, r)
+}
+
+/* OAuth Access (Cloudflare Access-like) */
+
+// Handle OAuth Access authentication
+func (h *ProxyHandler) handleOAuthAccessAuth(w http.ResponseWriter, r *http.Request) error {
+	if h.Parent.Option.OAuthAccessManager == nil {
+		return errors.New("OAuth Access manager not configured")
+	}
+
+	// Check if the user is authenticated
+	session := h.Parent.Option.OAuthAccessManager.CheckAuth(r)
+	if session == nil {
+		// Not authenticated, redirect to OAuth login
+		originalURL := r.URL.String()
+		if r.Host != "" {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			originalURL = scheme + "://" + r.Host + r.URL.String()
+		}
+
+		loginURL := "/.zoraxy/oauth/login?redirect=" + originalURL
+		http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
+		return errors.New("authentication required")
+	}
+
+	// User is authenticated, continue to the proxied resource
+	return nil
 }

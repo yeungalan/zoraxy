@@ -17,7 +17,9 @@ import (
 	"imuslab.com/zoraxy/mod/access"
 	"imuslab.com/zoraxy/mod/acme"
 	"imuslab.com/zoraxy/mod/auth"
+	"imuslab.com/zoraxy/mod/auth/oauthaccess"
 	"imuslab.com/zoraxy/mod/auth/sso/forward"
+	"imuslab.com/zoraxy/mod/captcha"
 	"imuslab.com/zoraxy/mod/database"
 	"imuslab.com/zoraxy/mod/database/dbinc"
 	"imuslab.com/zoraxy/mod/dockerux"
@@ -187,6 +189,22 @@ func startupSequence() {
 		Logger:   SystemWideLogger,
 		Database: sysdb,
 	})
+
+	//Create OAuth Access router for Cloudflare Access-like endpoint protection
+	sysdb.NewTable("oauth_access")
+	oauthAccessRouter, err = oauthaccess.NewManager(sysdb, SystemWideLogger)
+	if err != nil {
+		SystemWideLogger.PrintAndLog("oauth-access", "Failed to initialize OAuth Access manager", err)
+		panic(err)
+	}
+
+	//Create captcha manager
+	sysdb.NewTable("captcha")
+	captchaManager, err = captcha.NewManager(sysdb)
+	if err != nil {
+		SystemWideLogger.PrintAndLog("captcha", "Failed to initialize captcha manager", err)
+		panic(err)
+	}
 
 	//Create a statistic collector
 	statisticCollector, err = statistic.NewStatisticCollector(statistic.CollectorOption{

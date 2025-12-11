@@ -75,6 +75,12 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		/* Captcha Check */
+		if h.handleCaptchaCheck(w, r) {
+			//Request handled by captcha challenge
+			return
+		}
+
 		/* Exploit Detection */
 		if sep.detector != nil {
 			if sep.detector.CheckIsAttack(w, r) {

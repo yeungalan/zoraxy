@@ -69,6 +69,16 @@ type RouterOption struct {
 	ForwardAuthRouter *forward.AuthRouter
 	OAuth2Router      *oauth2.OAuth2Router //OAuth2Router router for OAuth2Router authentication
 
+	/* Security */
+	CaptchaManager interface {
+		IsEnabled() bool
+		HasValidSession(clientIP string) bool
+	} //Captcha manager for bot protection
+
+	OAuthAccessManager interface {
+		CheckAuth(r *http.Request) interface{} // Returns session if authenticated, nil otherwise
+	} //OAuth Access manager for endpoint protection
+
 	/* Utilities */
 	DevelopmentMode bool           //Enable development mode, provide more debug information in headers
 	Logger          *logger.Logger //Logger for reverse proxy requests
@@ -158,10 +168,11 @@ type HeaderRewriteRules struct {
 type AuthMethod int
 
 const (
-	AuthMethodNone    AuthMethod = iota //No authentication required
-	AuthMethodBasic                     //Basic Auth
-	AuthMethodForward                   //Forward
-	AuthMethodOauth2                    //Oauth2
+	AuthMethodNone       AuthMethod = iota //No authentication required
+	AuthMethodBasic                        //Basic Auth
+	AuthMethodForward                      //Forward
+	AuthMethodOauth2                       //Oauth2
+	AuthMethodOAuthAccess                  //OAuth Access (Cloudflare Access-like)
 )
 
 type AuthenticationProvider struct {
@@ -177,6 +188,9 @@ type AuthenticationProvider struct {
 	ForwardAuthResponseClientHeaders  []string // List of headers to copy from the forward auth server response to the client response.
 	ForwardAuthRequestHeaders         []string // List of headers to copy from the original request to the auth server. If empty all are copied.
 	ForwardAuthRequestExcludedCookies []string // List of cookies to exclude from the request after sending it to the forward auth server.
+
+	/* OAuth Access Settings */
+	OAuthAccessEnabled bool // Whether OAuth Access is enabled for this endpoint
 }
 
 // A proxy endpoint record, a general interface for handling inbound routing

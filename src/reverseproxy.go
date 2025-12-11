@@ -118,6 +118,8 @@ func ReverseProxyInit() {
 		OAuth2Router:       oauth2Router,
 		LoadBalancer:       loadBalancer,
 		PluginManager:      pluginManager,
+		CaptchaManager:     captchaManager,
+		OAuthAccessManager: oauthAccessRouter,
 		/* Utilities */
 		DevelopmentMode: *development_build,
 		Logger:          SystemWideLogger,

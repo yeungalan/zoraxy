@@ -237,6 +237,32 @@ func RegisterNetworkUtilsAPIs(authRouter *auth.RouterDef) {
 	authRouter.HandleFunc("/api/tools/fwdproxy/port", forwardProxy.HandlePort)
 }
 
+// Register the APIs for OAuth Access management functions
+func RegisterOAuthAccessAPIs(authRouter *auth.RouterDef, targetMux *http.ServeMux) {
+	// Admin endpoints (require auth)
+	authRouter.HandleFunc("/api/oauth-access/providers/list", oauthAccessRouter.HandleListProviders)
+	authRouter.HandleFunc("/api/oauth-access/providers/get", oauthAccessRouter.HandleGetProvider)
+	authRouter.HandleFunc("/api/oauth-access/providers/add", oauthAccessRouter.HandleAddProvider)
+	authRouter.HandleFunc("/api/oauth-access/providers/delete", oauthAccessRouter.HandleDeleteProvider)
+	authRouter.HandleFunc("/api/oauth-access/stats", oauthAccessRouter.HandleGetStats)
+
+	// Public endpoints (no auth required)
+	targetMux.HandleFunc("/.zoraxy/oauth/login", oauthAccessRouter.HandleLogin)
+	targetMux.HandleFunc("/.zoraxy/oauth/callback", oauthAccessRouter.HandleCallback)
+	targetMux.HandleFunc("/.zoraxy/oauth/logout", oauthAccessRouter.HandleLogout)
+	targetMux.HandleFunc("/api/oauth-access/check", oauthAccessRouter.HandleCheckSession)
+}
+
+// Register the APIs for Captcha management functions
+func RegisterCaptchaAPIs(authRouter *auth.RouterDef, targetMux *http.ServeMux) {
+	authRouter.HandleFunc("/api/captcha/config", captchaManager.HandleGetConfig)
+	authRouter.HandleFunc("/api/captcha/update", captchaManager.HandleUpdateConfig)
+	authRouter.HandleFunc("/api/captcha/session/check", captchaManager.HandleCheckSession)
+	// Public endpoints (no auth required)
+	targetMux.HandleFunc("/api/captcha/verify", captchaManager.HandleVerify)
+	targetMux.HandleFunc("/.zoraxy/captcha/challenge", captchaManager.HandleChallengePage)
+}
+
 func RegisterPluginAPIs(authRouter *auth.RouterDef) {
 	authRouter.HandleFunc("/api/plugins/list", pluginManager.HandleListPlugins)
 	authRouter.HandleFunc("/api/plugins/enable", pluginManager.HandleEnablePlugin)
@@ -372,6 +398,8 @@ func initAPIs(targetMux *http.ServeMux) {
 	RegisterACMEAndAutoRenewerAPIs(authRouter)
 	RegisterStaticWebServerAPIs(authRouter)
 	RegisterPluginAPIs(authRouter)
+	RegisterCaptchaAPIs(authRouter, targetMux)
+	RegisterOAuthAccessAPIs(authRouter, targetMux)
 
 	//Account Reset
 	targetMux.HandleFunc("/api/account/reset", HandleAdminAccountResetEmail)
