@@ -725,8 +725,20 @@
             // correctly by checking it again after 300ms
             $("#advanceProxyRules").accordion();
             $("#newProxyRuleAccessFilter").parent().dropdown();
-            $("#mitigationAction").parent().dropdown();
+
+            // Initialize mitigation action dropdown with CAPTCHA toggle
+            $("#mitigationAction").parent().dropdown({
+                onChange: function(value) {
+                    if (value == "4") {
+                        $("#captchaConfigSection").slideDown();
+                    } else {
+                        $("#captchaConfigSection").slideUp();
+                    }
+                }
+            });
+
             $("#captchaProvider").parent().dropdown();
+
             setTimeout(function(){
                 initAdvanceSettingsAccordion();
             }, 300);
@@ -735,17 +747,6 @@
     initAdvanceSettingsAccordion();
 
     /* CAPTCHA Configuration UI Handling */
-    // Show/hide CAPTCHA config section when mitigation action is CAPTCHA
-    $("#mitigationAction").parent().dropdown({
-        onChange: function(value) {
-            if (value == "4") {
-                $("#captchaConfigSection").slideDown();
-            } else {
-                $("#captchaConfigSection").slideUp();
-            }
-        }
-    });
-
     // Show/hide CAPTCHA settings when checkbox is toggled
     $("#captchaEnabled").change(function() {
         if ($(this).is(":checked")) {
