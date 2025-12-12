@@ -325,7 +325,15 @@ func (m *Manager) ExchangeCodeForToken(code, state string) (*OAuthSession, error
 	data.Set("client_id", provider.ClientID)
 	data.Set("client_secret", provider.ClientSecret)
 
-	resp, err := m.client.PostForm(provider.TokenURL, data)
+	// Create request with JSON accept header (GitHub and some providers need this)
+	req, err := http.NewRequest("POST", provider.TokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := m.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
@@ -341,10 +349,24 @@ func (m *Manager) ExchangeCodeForToken(code, state string) (*OAuthSession, error
 		return nil, fmt.Errorf("token exchange failed (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Try to decode the response
+	// Try to decode the response as JSON first
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to decode token response: %w. Response body: %s", err, string(body))
+		// If JSON parsing fails, try URL-encoded format (GitHub uses this by default)
+		values, parseErr := url.ParseQuery(string(body))
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to decode token response as JSON or form-encoded: %w. Response body: %s", err, string(body))
+		}
+
+		// Parse form-encoded response
+		tokenResp.AccessToken = values.Get("access_token")
+		tokenResp.TokenType = values.Get("token_type")
+		tokenResp.RefreshToken = values.Get("refresh_token")
+		tokenResp.Scope = values.Get("scope")
+
+		if tokenResp.AccessToken == "" {
+			return nil, fmt.Errorf("no access token in response. Response body: %s", string(body))
+		}
 	}
 
 	// Get user info
