@@ -3,6 +3,7 @@ package dynamicproxy
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"imuslab.com/zoraxy/mod/auth"
@@ -174,7 +175,7 @@ func (h *ProxyHandler) handleOAuthAccessAuth(w http.ResponseWriter, r *http.Requ
 			originalURL = scheme + "://" + r.Host + r.URL.String()
 		}
 
-		loginURL := "/.zoraxy/oauth/login?redirect=" + originalURL
+		loginURL := "/.zoraxy/oauth/login?redirect=" + url.QueryEscape(originalURL)
 		http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
 		return errors.New("authentication required")
 	}
