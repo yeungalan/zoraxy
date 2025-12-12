@@ -241,7 +241,7 @@ func (m *Manager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		session, err := m.GetSession(cookie.Value)
+		_, err = m.GetSession(cookie.Value)
 		if err != nil {
 			// Invalid or expired session, redirect to login
 			loginURL := "/.zoraxy/oauth/login?redirect=" + r.URL.String()
@@ -250,6 +250,7 @@ func (m *Manager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Add user info to request context if needed
+		// session, _ := m.GetSession(cookie.Value)
 		// context.WithValue(r.Context(), "user_email", session.UserEmail)
 
 		next(w, r)
