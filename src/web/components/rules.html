@@ -131,56 +131,6 @@
                                     <small style="opacity:0.7;">Select how the system should respond when malicious or automated traffic is detected.</small>
                                 </div>
 
-                                <div id="captchaConfigSection" style="display:none; margin-top:1.5em; padding:1em; background-color: var(--theme_advance); border-radius: 0.6em;">
-                                    <h4><i class="ui shield icon"></i> CAPTCHA Configuration</h4>
-                                    <div class="field">
-                                        <div class="ui checkbox">
-                                            <input type="checkbox" id="captchaEnabled">
-                                            <label>Enable CAPTCHA Protection<br><small>Show CAPTCHA challenge to verify users</small></label>
-                                        </div>
-                                    </div>
-                                    <div id="captchaSettings" style="display:none;">
-                                        <div class="field">
-                                            <div class="ui checkbox">
-                                                <input type="checkbox" id="captchaAlwaysOn">
-                                                <label>Always-On Mode<br><small>Require CAPTCHA for all requests, not just detected exploits/crawlers</small></label>
-                                            </div>
-                                        </div>
-                                        <div class="field">
-                                            <label>CAPTCHA Provider</label>
-                                            <div class="ui fluid selection dropdown">
-                                                <input type="hidden" id="captchaProvider" value="0">
-                                                <i class="dropdown icon"></i>
-                                                <div class="default text">Select CAPTCHA Provider</div>
-                                                <div class="menu">
-                                                    <div class="item" data-value="0"><i class="cloudflare icon"></i> Cloudflare Turnstile</div>
-                                                    <div class="item" data-value="1"><i class="google icon"></i> Google reCAPTCHA</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="field">
-                                            <label>Site Key</label>
-                                            <input type="text" id="captchaSiteKey" placeholder="Your CAPTCHA site key (public)">
-                                            <small>Get your site key from <a href="https://developers.cloudflare.com/turnstile/" target="_blank">Cloudflare Turnstile</a> or <a href="https://www.google.com/recaptcha/admin" target="_blank">Google reCAPTCHA</a></small>
-                                        </div>
-                                        <div class="field">
-                                            <label>Secret Key</label>
-                                            <input type="password" id="captchaSecretKey" placeholder="Your CAPTCHA secret key">
-                                            <small>Server-side secret key for verification (kept private)</small>
-                                        </div>
-                                        <div class="field">
-                                            <label>Session Time-To-Live (seconds)</label>
-                                            <input type="number" id="captchaSessionTTL" value="3600" min="300" max="86400">
-                                            <small>How long a verified session lasts (default: 3600 = 1 hour)</small>
-                                        </div>
-                                        <div class="field">
-                                            <label>Bypass Paths (Optional)</label>
-                                            <input type="text" id="captchaBypassPaths" placeholder="/api/, /static/, /health">
-                                            <small>Comma-separated list of path prefixes to bypass CAPTCHA (e.g., /api/, /static/)</small>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div class="ui horizontal divider">
                                     <i class="ui red ban icon"></i>
                                     Access Control
@@ -246,6 +196,62 @@
                                     </div>
                                     <small>Return a 429 error code if request rate exceed the rate limit.</small>
                                 </div>
+
+                                <div class="field">
+                                    <div class="ui checkbox">
+                                        <input type="checkbox" id="captchaEnabled">
+                                        <label>Require CAPTCHA<br><small>Show CAPTCHA challenge to verify users</small></label>
+                                    </div>
+                                </div>
+                                <div id="captchaSettings" style="display:none; margin-top:0.5em; padding:1em; background-color: var(--theme_advance); border-radius: 0.6em;">
+                                    <div class="field">
+                                        <div class="ui checkbox">
+                                            <input type="checkbox" id="captchaAlwaysOn">
+                                            <label>Always-On Mode<br><small>Require CAPTCHA for all requests (acts as entry gate)</small></label>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label>CAPTCHA Provider</label>
+                                        <div class="ui fluid selection dropdown">
+                                            <input type="hidden" id="captchaProvider" value="0">
+                                            <i class="dropdown icon"></i>
+                                            <div class="default text">Select CAPTCHA Provider</div>
+                                            <div class="menu">
+                                                <div class="item" data-value="0"><i class="cloudflare icon"></i> Cloudflare Turnstile</div>
+                                                <div class="item" data-value="1"><i class="google icon"></i> Google reCAPTCHA</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label>Site Key</label>
+                                        <input type="text" id="captchaSiteKey" placeholder="Your CAPTCHA site key (public)">
+                                        <small>Get your site key from <a href="https://developers.cloudflare.com/turnstile/" target="_blank">Cloudflare Turnstile</a> or <a href="https://www.google.com/recaptcha/admin" target="_blank">Google reCAPTCHA</a></small>
+                                    </div>
+                                    <div class="field">
+                                        <label>Secret Key</label>
+                                        <input type="password" id="captchaSecretKey" placeholder="Your CAPTCHA secret key">
+                                        <small>Server-side secret key for verification (kept private)</small>
+                                    </div>
+                                    <div class="field">
+                                        <label>Session Time-To-Live (seconds)</label>
+                                        <input type="number" id="captchaSessionTTL" value="3600" min="300" max="86400">
+                                        <small>How long a verified session lasts (default: 3600 = 1 hour)</small>
+                                    </div>
+                                    <div class="field">
+                                        <label>Bypass Paths (Optional)</label>
+                                        <input type="text" id="captchaBypassPaths" placeholder="/api/, /static/, /health">
+                                        <small>Comma-separated list of path prefixes to bypass CAPTCHA (e.g., /api/, /static/)</small>
+                                    </div>
+                                    <div class="field">
+                                        <label>Trigger Condition</label>
+                                        <small>When should CAPTCHA be shown?</small><br>
+                                        <div class="ui checkbox" style="margin-top:0.5em;">
+                                            <input type="checkbox" id="captchaOnExploits" checked>
+                                            <label>When exploits/crawlers detected (requires mitigation action = CAPTCHA)</label>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="ui horizontal divider">
                                     <i class="ui text file icon"></i>
                                     Logging
@@ -725,18 +731,7 @@
             // correctly by checking it again after 300ms
             $("#advanceProxyRules").accordion();
             $("#newProxyRuleAccessFilter").parent().dropdown();
-
-            // Initialize mitigation action dropdown with CAPTCHA toggle
-            $("#mitigationAction").parent().dropdown({
-                onChange: function(value) {
-                    if (value == "4") {
-                        $("#captchaConfigSection").slideDown();
-                    } else {
-                        $("#captchaConfigSection").slideUp();
-                    }
-                }
-            });
-
+            $("#mitigationAction").parent().dropdown();
             $("#captchaProvider").parent().dropdown();
 
             setTimeout(function(){
