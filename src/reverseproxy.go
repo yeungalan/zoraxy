@@ -138,6 +138,12 @@ func ReverseProxyInit() {
 		// Channel already has a value, skip
 	}
 
+	// Register captcha special routing rules
+	registerCaptchaRoutingRules()
+
+	// Register OAuth Access special routing rules
+	registerOAuthAccessRoutingRules()
+
 	/*
 
 		Load all conf from files
@@ -2076,4 +2082,65 @@ func HandleWsHeaderBehavior(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "405 - Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// registerCaptchaRoutingRules registers special routing rules for captcha endpoints
+func registerCaptchaRoutingRules() {
+	// Captcha challenge page
+	dynamicProxyRouter.AddRoutingRules(&dynamicproxy.RoutingRule{
+		ID:      "captcha-challenge",
+		Enabled: true,
+		MatchRule: func(r *http.Request) bool {
+			return r.URL.Path == "/.zoraxy/captcha/challenge"
+		},
+		RoutingHandler: captchaManager.HandleChallengePage,
+		UseSystemAccessControl: false,
+	})
+
+	// Captcha verification endpoint
+	dynamicProxyRouter.AddRoutingRules(&dynamicproxy.RoutingRule{
+		ID:      "captcha-verify",
+		Enabled: true,
+		MatchRule: func(r *http.Request) bool {
+			return r.URL.Path == "/api/captcha/verify"
+		},
+		RoutingHandler: captchaManager.HandleVerify,
+		UseSystemAccessControl: false,
+	})
+}
+
+// registerOAuthAccessRoutingRules registers special routing rules for OAuth Access endpoints
+func registerOAuthAccessRoutingRules() {
+	// OAuth login
+	dynamicProxyRouter.AddRoutingRules(&dynamicproxy.RoutingRule{
+		ID:      "oauth-access-login",
+		Enabled: true,
+		MatchRule: func(r *http.Request) bool {
+			return r.URL.Path == "/.zoraxy/oauth/login"
+		},
+		RoutingHandler: oauthAccessRouter.HandleLogin,
+		UseSystemAccessControl: false,
+	})
+
+	// OAuth callback
+	dynamicProxyRouter.AddRoutingRules(&dynamicproxy.RoutingRule{
+		ID:      "oauth-access-callback",
+		Enabled: true,
+		MatchRule: func(r *http.Request) bool {
+			return r.URL.Path == "/.zoraxy/oauth/callback"
+		},
+		RoutingHandler: oauthAccessRouter.HandleCallback,
+		UseSystemAccessControl: false,
+	})
+
+	// OAuth logout
+	dynamicProxyRouter.AddRoutingRules(&dynamicproxy.RoutingRule{
+		ID:      "oauth-access-logout",
+		Enabled: true,
+		MatchRule: func(r *http.Request) bool {
+			return r.URL.Path == "/.zoraxy/oauth/logout"
+		},
+		RoutingHandler: oauthAccessRouter.HandleLogout,
+		UseSystemAccessControl: false,
+	})
 }
