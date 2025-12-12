@@ -158,79 +158,78 @@ func generateChallengePage(provider CaptchaProvider, siteKey string, redirectURL
 	}
 
 	return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Verification - Zoraxy</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Just a moment...</title>
     ` + providerScript + `
     <style>
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+        }
+
+        html {
+            line-height: 1.15;
+            -webkit-text-size-adjust: 100%;
+            color: #313131;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            background-color: #fff;
         }
 
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .main-content {
+            margin: 8rem auto;
+            padding: 0 1.5rem;
+            max-width: 60rem;
             width: 100%;
-            padding: 40px;
-            text-align: center;
         }
 
-        .logo {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            margin: 0 auto 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            color: white;
-            font-weight: bold;
+        @media (max-width: 720px) {
+            .main-content {
+                margin-top: 4rem;
+            }
         }
 
-        h1 {
-            color: #1a202c;
-            font-size: 28px;
-            margin-bottom: 12px;
-            font-weight: 700;
+        .h2 {
+            line-height: 2.25rem;
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
         }
 
-        p {
-            color: #718096;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 32px;
+        @media (max-width: 720px) {
+            .h2 {
+                line-height: 1.5rem;
+                font-size: 1.25rem;
+            }
         }
 
         .captcha-container {
             display: flex;
             justify-content: center;
-            margin: 32px 0;
-            min-height: 78px;
+            margin: 2rem 0;
         }
 
         .loading {
             display: none;
-            color: #667eea;
-            font-size: 16px;
-            margin-top: 20px;
+            text-align: center;
+            margin-top: 2rem;
         }
 
         .loading.active {
@@ -239,12 +238,12 @@ func generateChallengePage(provider CaptchaProvider, siteKey string, redirectURL
 
         .spinner {
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border-top: 3px solid #555;
             border-radius: 50%;
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
@@ -252,52 +251,75 @@ func generateChallengePage(provider CaptchaProvider, siteKey string, redirectURL
             100% { transform: rotate(360deg); }
         }
 
-        .footer {
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid #e2e8f0;
-            color: #a0aec0;
-            font-size: 14px;
-        }
-
         .error {
             display: none;
-            background: #fff5f5;
-            border: 1px solid #fc8181;
-            color: #c53030;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-size: 14px;
+            background-color: #fee;
+            border: 1px solid #fcc;
+            color: #c00;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
         }
 
         .error.active {
             display: block;
         }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            color: #999;
+            font-size: 0.875rem;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            html {
+                color: #d9d9d9;
+            }
+
+            body {
+                background-color: #222;
+            }
+
+            .spinner {
+                border-color: #555;
+                border-top-color: #999;
+            }
+
+            .error {
+                background-color: #3a1a1a;
+                border-color: #5a2a2a;
+                color: #faa;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">Z</div>
-        <h1>Security Verification</h1>
-        <p>Please complete the security check below to continue to your destination.</p>
+    <div class="main-wrapper">
+        <div class="main-content">
+            <div class="h2">Checking your browser before accessing the site...</div>
 
-        <div class="captcha-container">
-            ` + providerWidget + `
-        </div>
+            <noscript>
+                <div class="error active">Enable JavaScript and cookies to continue</div>
+            </noscript>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Verifying...</p>
-        </div>
+            <div class="captcha-container">
+                ` + providerWidget + `
+            </div>
 
-        <div class="error" id="error">
-            Verification failed. Please try again.
-        </div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Verifying...</div>
+            </div>
 
-        <div class="footer">
-            <p>Protected by Zoraxy</p>
+            <div class="error" id="error">
+                Verification failed. Please try again.
+            </div>
         </div>
+    </div>
+
+    <div class="footer">
+        Protected by Zoraxy
     </div>
 
     <script>
