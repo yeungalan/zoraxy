@@ -399,10 +399,16 @@
             delete provider.client_secret;
         }
 
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="zoraxy.csrf.Token"]').getAttribute("content");
+
         $.ajax({
             url: '/api/oauth-access/providers/add',
             method: 'POST',
             contentType: 'application/json',
+            headers: {
+                'X-CSRF-Token': csrfToken
+            },
             data: JSON.stringify(provider),
             success: function(data) {
                 msgbox('Provider saved successfully', true);

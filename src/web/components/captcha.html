@@ -184,10 +184,16 @@
             delete config.secret_key;
         }
 
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="zoraxy.csrf.Token"]').getAttribute("content");
+
         $.ajax({
             url: '/api/captcha/update',
             method: 'POST',
             contentType: 'application/json',
+            headers: {
+                'X-CSRF-Token': csrfToken
+            },
             data: JSON.stringify(config),
             success: function(data) {
                 msgbox('Captcha configuration saved successfully', true);
