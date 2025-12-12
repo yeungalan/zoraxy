@@ -126,6 +126,12 @@ func getClientIP(r *http.Request) string {
 func generateChallengePage(provider CaptchaProvider, siteKey string, redirectURL string) string {
 	var providerScript, providerWidget string
 
+	// Escape the redirect URL for safe embedding in JavaScript
+	escapedRedirectURL := strings.Replace(redirectURL, `\`, `\\`, -1)
+	escapedRedirectURL = strings.Replace(escapedRedirectURL, `"`, `\"`, -1)
+	escapedRedirectURL = strings.Replace(escapedRedirectURL, "\n", `\n`, -1)
+	escapedRedirectURL = strings.Replace(escapedRedirectURL, "\r", `\r`, -1)
+
 	switch provider {
 	case ProviderGoogleRecaptcha:
 		providerScript = `<script src="https://www.google.com/recaptcha/api.js" async defer></script>`
@@ -281,7 +287,7 @@ func generateChallengePage(provider CaptchaProvider, siteKey string, redirectURL
     </div>
 
     <script>
-        const redirectUrl = "` + redirectURL + `";
+        const redirectUrl = "` + escapedRedirectURL + `";
 
         function onCaptchaSuccess(token) {
             document.getElementById('loading').classList.add('active');
