@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 /*
@@ -231,11 +230,6 @@ func ShouldBypassCaptcha(requestPath string, bypassPaths []string) bool {
 
 // GetRedirectURL constructs the redirect URL after verification
 func GetRedirectURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-
 	// Get the original URL
 	originalURL := r.URL.String()
 	if originalURL == "" {
