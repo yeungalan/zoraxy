@@ -125,10 +125,60 @@
                                             <div class="item" data-value="1">403 Forbidden</div>
                                             <div class="item" data-value="2">400 Bad Request</div>
                                             <div class="item" data-value="3">Drop Connection</div>
-                                            <div class="disabled item" data-value="4">Captcha Challenge</div> <!-- Work in progress -->
+                                            <div class="item" data-value="4">CAPTCHA Challenge</div>
                                         </div>
                                     </div>
                                     <small style="opacity:0.7;">Select how the system should respond when malicious or automated traffic is detected.</small>
+                                </div>
+
+                                <div id="captchaConfigSection" style="display:none; margin-top:1.5em; padding:1em; background-color: var(--theme_advance); border-radius: 0.6em;">
+                                    <h4><i class="ui shield icon"></i> CAPTCHA Configuration</h4>
+                                    <div class="field">
+                                        <div class="ui checkbox">
+                                            <input type="checkbox" id="captchaEnabled">
+                                            <label>Enable CAPTCHA Protection<br><small>Show CAPTCHA challenge to verify users</small></label>
+                                        </div>
+                                    </div>
+                                    <div id="captchaSettings" style="display:none;">
+                                        <div class="field">
+                                            <div class="ui checkbox">
+                                                <input type="checkbox" id="captchaAlwaysOn">
+                                                <label>Always-On Mode<br><small>Require CAPTCHA for all requests, not just detected exploits/crawlers</small></label>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label>CAPTCHA Provider</label>
+                                            <div class="ui fluid selection dropdown">
+                                                <input type="hidden" id="captchaProvider" value="0">
+                                                <i class="dropdown icon"></i>
+                                                <div class="default text">Select CAPTCHA Provider</div>
+                                                <div class="menu">
+                                                    <div class="item" data-value="0"><i class="cloudflare icon"></i> Cloudflare Turnstile</div>
+                                                    <div class="item" data-value="1"><i class="google icon"></i> Google reCAPTCHA</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label>Site Key</label>
+                                            <input type="text" id="captchaSiteKey" placeholder="Your CAPTCHA site key (public)">
+                                            <small>Get your site key from <a href="https://developers.cloudflare.com/turnstile/" target="_blank">Cloudflare Turnstile</a> or <a href="https://www.google.com/recaptcha/admin" target="_blank">Google reCAPTCHA</a></small>
+                                        </div>
+                                        <div class="field">
+                                            <label>Secret Key</label>
+                                            <input type="password" id="captchaSecretKey" placeholder="Your CAPTCHA secret key">
+                                            <small>Server-side secret key for verification (kept private)</small>
+                                        </div>
+                                        <div class="field">
+                                            <label>Session Time-To-Live (seconds)</label>
+                                            <input type="number" id="captchaSessionTTL" value="3600" min="300" max="86400">
+                                            <small>How long a verified session lasts (default: 3600 = 1 hour)</small>
+                                        </div>
+                                        <div class="field">
+                                            <label>Bypass Paths (Optional)</label>
+                                            <input type="text" id="captchaBypassPaths" placeholder="/api/, /static/, /health">
+                                            <small>Comma-separated list of path prefixes to bypass CAPTCHA (e.g., /api/, /static/)</small>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="ui horizontal divider">
@@ -326,6 +376,15 @@
         let blockAICrawlers = $("#blockAICrawlers")[0].checked;
         let mitigationAction = $("#mitigationAction").val();
 
+        // CAPTCHA configuration
+        let captchaEnabled = $("#captchaEnabled")[0].checked;
+        let captchaProvider = $("#captchaProvider").val();
+        let captchaSiteKey = $("#captchaSiteKey").val();
+        let captchaSecretKey = $("#captchaSecretKey").val();
+        let captchaSessionTTL = $("#captchaSessionTTL").val();
+        let captchaBypassPaths = $("#captchaBypassPaths").val();
+        let captchaAlwaysOn = $("#captchaAlwaysOn")[0].checked;
+
         if (rootname.trim() == ""){
             $("#rootname").parent().addClass("error");
             return
@@ -346,8 +405,8 @@
             method: "POST",
             data: {
                 type: "host",
-                rootname: rootname, 
-                tls: useTLS, 
+                rootname: rootname,
+                tls: useTLS,
                 ep: proxyDomain,
                 tlsval: skipTLSValidation,
                 bpwsorg: skipWebSocketOriginCheck,
@@ -365,6 +424,13 @@
                 blockCommonExploits: blockCommonExploits,
                 blockAICrawlers: blockAICrawlers,
                 mitigationAction: mitigationAction,
+                captchaEnabled: captchaEnabled,
+                captchaProvider: captchaProvider,
+                captchaSiteKey: captchaSiteKey,
+                captchaSecretKey: captchaSecretKey,
+                captchaSessionTTL: captchaSessionTTL,
+                captchaBypassPaths: captchaBypassPaths,
+                captchaAlwaysOn: captchaAlwaysOn,
             },
             success: function(data){
                 if (data.error != undefined){
@@ -660,13 +726,35 @@
             $("#advanceProxyRules").accordion();
             $("#newProxyRuleAccessFilter").parent().dropdown();
             $("#mitigationAction").parent().dropdown();
+            $("#captchaProvider").parent().dropdown();
             setTimeout(function(){
                 initAdvanceSettingsAccordion();
             }, 300);
         }
     }
     initAdvanceSettingsAccordion();
-   
- 
-   
+
+    /* CAPTCHA Configuration UI Handling */
+    // Show/hide CAPTCHA config section when mitigation action is CAPTCHA
+    $("#mitigationAction").parent().dropdown({
+        onChange: function(value) {
+            if (value == "4") {
+                $("#captchaConfigSection").slideDown();
+            } else {
+                $("#captchaConfigSection").slideUp();
+            }
+        }
+    });
+
+    // Show/hide CAPTCHA settings when checkbox is toggled
+    $("#captchaEnabled").change(function() {
+        if ($(this).is(":checked")) {
+            $("#captchaSettings").slideDown();
+        } else {
+            $("#captchaSettings").slideUp();
+        }
+    });
+
+
+
 </script>

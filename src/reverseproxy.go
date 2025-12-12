@@ -361,6 +361,47 @@ func ReverseProxyHandleAddEndpoint(w http.ResponseWriter, r *http.Request) {
 		mitigationAction, _ = strconv.Atoi(mitigationActionStr)
 	}
 
+	// CAPTCHA configuration
+	var captchaConfig *dynamicproxy.CaptchaConfig = nil
+	captchaEnabled, _ := utils.PostBool(r, "captchaEnabled")
+	if captchaEnabled {
+		captchaProviderStr, _ := utils.PostPara(r, "captchaProvider")
+		captchaProvider := 0 // Default to Cloudflare Turnstile
+		if captchaProviderStr != "" {
+			captchaProvider, _ = strconv.Atoi(captchaProviderStr)
+		}
+
+		captchaSiteKey, _ := utils.PostPara(r, "captchaSiteKey")
+		captchaSecretKey, _ := utils.PostPara(r, "captchaSecretKey")
+		captchaSessionTTLStr, _ := utils.PostPara(r, "captchaSessionTTL")
+		captchaSessionTTL := 3600 // Default 1 hour
+		if captchaSessionTTLStr != "" {
+			captchaSessionTTL, _ = strconv.Atoi(captchaSessionTTLStr)
+		}
+
+		captchaBypassPathsStr, _ := utils.PostPara(r, "captchaBypassPaths")
+		captchaBypassPaths := []string{}
+		if captchaBypassPathsStr != "" {
+			captchaBypassPaths = strings.Split(captchaBypassPathsStr, ",")
+			// Trim spaces from each path
+			for i, path := range captchaBypassPaths {
+				captchaBypassPaths[i] = strings.TrimSpace(path)
+			}
+		}
+
+		captchaAlwaysOn, _ := utils.PostBool(r, "captchaAlwaysOn")
+
+		captchaConfig = &dynamicproxy.CaptchaConfig{
+			Enabled:     true,
+			Provider:    dynamicproxy.CaptchaProvider(captchaProvider),
+			SiteKey:     captchaSiteKey,
+			SecretKey:   captchaSecretKey,
+			SessionTTL:  captchaSessionTTL,
+			BypassPaths: captchaBypassPaths,
+			AlwaysOn:    captchaAlwaysOn,
+		}
+	}
+
 	var proxyEndpointCreated *dynamicproxy.ProxyEndpoint
 	switch eptype {
 	case "host":
@@ -442,6 +483,7 @@ func ReverseProxyHandleAddEndpoint(w http.ResponseWriter, r *http.Request) {
 			BlockCommonExploits:  blockCommonExploits,
 			BlockAICrawlers:      blockAICrawlers,
 			MitigationAction:     mitigationAction,
+			CaptchaConfig:        captchaConfig,
 		}
 
 		preparedEndpoint, err := dynamicProxyRouter.PrepareProxyRoute(&thisProxyEndpoint)
@@ -611,6 +653,47 @@ func ReverseProxyHandleEditEndpoint(w http.ResponseWriter, r *http.Request) {
 		mitigationAction, _ = strconv.Atoi(mitigationActionStr)
 	}
 
+	// CAPTCHA configuration (for edit)
+	var captchaConfig *dynamicproxy.CaptchaConfig = nil
+	captchaEnabled, _ := utils.PostBool(r, "captchaEnabled")
+	if captchaEnabled {
+		captchaProviderStr, _ := utils.PostPara(r, "captchaProvider")
+		captchaProvider := 0 // Default to Cloudflare Turnstile
+		if captchaProviderStr != "" {
+			captchaProvider, _ = strconv.Atoi(captchaProviderStr)
+		}
+
+		captchaSiteKey, _ := utils.PostPara(r, "captchaSiteKey")
+		captchaSecretKey, _ := utils.PostPara(r, "captchaSecretKey")
+		captchaSessionTTLStr, _ := utils.PostPara(r, "captchaSessionTTL")
+		captchaSessionTTL := 3600 // Default 1 hour
+		if captchaSessionTTLStr != "" {
+			captchaSessionTTL, _ = strconv.Atoi(captchaSessionTTLStr)
+		}
+
+		captchaBypassPathsStr, _ := utils.PostPara(r, "captchaBypassPaths")
+		captchaBypassPaths := []string{}
+		if captchaBypassPathsStr != "" {
+			captchaBypassPaths = strings.Split(captchaBypassPathsStr, ",")
+			// Trim spaces from each path
+			for i, path := range captchaBypassPaths {
+				captchaBypassPaths[i] = strings.TrimSpace(path)
+			}
+		}
+
+		captchaAlwaysOn, _ := utils.PostBool(r, "captchaAlwaysOn")
+
+		captchaConfig = &dynamicproxy.CaptchaConfig{
+			Enabled:     true,
+			Provider:    dynamicproxy.CaptchaProvider(captchaProvider),
+			SiteKey:     captchaSiteKey,
+			SecretKey:   captchaSecretKey,
+			SessionTTL:  captchaSessionTTL,
+			BypassPaths: captchaBypassPaths,
+			AlwaysOn:    captchaAlwaysOn,
+		}
+	}
+
 	//Load the previous basic auth credentials from current proxy rules
 	targetProxyEntry, err := dynamicProxyRouter.LoadProxy(rootNameOrMatchingDomain)
 	if err != nil {
@@ -661,6 +744,7 @@ func ReverseProxyHandleEditEndpoint(w http.ResponseWriter, r *http.Request) {
 	newProxyEndpoint.BlockCommonExploits = blockCommonExploits
 	newProxyEndpoint.BlockAICrawlers = blockAICrawlers
 	newProxyEndpoint.MitigationAction = mitigationAction
+	newProxyEndpoint.CaptchaConfig = captchaConfig
 	newProxyEndpoint.Tags = tags
 
 	//Prepare to replace the current routing rule

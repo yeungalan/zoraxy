@@ -82,10 +82,11 @@ type Router struct {
 	Root           *ProxyEndpoint //Root proxy endpoint, default site
 
 	/* Internals */
-	mux          http.Handler              //HTTP handler
-	server       *http.Server              //HTTP server
-	loadBalancer *loadbalance.RouteManager //Load balancer routing manager
-	routingRules []*RoutingRule            //Special routing rules, handle high priority routing like ACME request handling
+	mux            http.Handler              //HTTP handler
+	server         *http.Server              //HTTP server
+	loadBalancer   *loadbalance.RouteManager //Load balancer routing manager
+	routingRules   []*RoutingRule            //Special routing rules, handle high priority routing like ACME request handling
+	captchaHandler interface{}               //CAPTCHA handler for managing CAPTCHA challenges (interface{} to avoid circular import)
 
 	tlsListener      net.Listener //TLS listener, handle SNI routing
 	tlsBehaviorMutex sync.RWMutex //Mutex for tlsBehavior map
@@ -179,6 +180,25 @@ type AuthenticationProvider struct {
 	ForwardAuthRequestExcludedCookies []string // List of cookies to exclude from the request after sending it to the forward auth server.
 }
 
+/* CAPTCHA Configuration */
+type CaptchaProvider int
+
+const (
+	CaptchaProviderCloudflare CaptchaProvider = iota //Cloudflare Turnstile
+	CaptchaProviderGoogle                            //Google reCAPTCHA
+)
+
+// CAPTCHA configuration for endpoint security
+type CaptchaConfig struct {
+	Enabled      bool            //Whether CAPTCHA is enabled for this endpoint
+	Provider     CaptchaProvider //CAPTCHA provider type (Cloudflare Turnstile or Google reCAPTCHA)
+	SiteKey      string          //Public site key for the CAPTCHA provider
+	SecretKey    string          //Secret key for server-side verification
+	SessionTTL   int             //Session time-to-live in seconds after successful verification (default: 3600)
+	BypassPaths  []string        //List of path prefixes to bypass CAPTCHA (e.g., /api/, /static/)
+	AlwaysOn     bool            //If true, CAPTCHA is required for all requests (not just exploits), acts as a gate
+}
+
 // A proxy endpoint record, a general interface for handling inbound routing
 type ProxyEndpoint struct {
 	ProxyType            ProxyType               //The type of this proxy, see const def
@@ -217,7 +237,10 @@ type ProxyEndpoint struct {
 	//Exploit Detection
 	BlockCommonExploits bool //Enable blocking of common exploits (SQLi, XSS, etc.)
 	BlockAICrawlers     bool //Enable blocking of AI crawlers and bots
-	MitigationAction    int  //Action to take when exploit/crawler detected (0=404, 1=403, 2=400, 3=Drop, 4=Delay, 5=Captcha)
+	MitigationAction    int  //Action to take when exploit/crawler detected (0=404, 1=403, 2=400, 3=Drop, 4=Captcha)
+
+	//CAPTCHA Configuration
+	CaptchaConfig *CaptchaConfig //CAPTCHA configuration for this endpoint (used when MitigationAction == 4)
 
 	// Chunked Transfer Encoding
 	DisableChunkedTransferEncoding bool //Disable chunked transfer encoding for this endpoint

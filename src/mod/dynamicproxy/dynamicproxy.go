@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/zoraxy/mod/dynamicproxy/captcha"
 	"imuslab.com/zoraxy/mod/dynamicproxy/dpcore"
 )
 
@@ -22,6 +23,13 @@ import (
 
 func NewDynamicProxy(option RouterOption) (*Router, error) {
 	proxyMap := sync.Map{}
+
+	// Initialize CAPTCHA handler
+	captchaHandler, err := NewCaptchaHandler()
+	if err != nil {
+		return nil, err
+	}
+
 	thisRouter := Router{
 		Option:           &option,
 		ProxyEndpoints:   &proxyMap,
@@ -30,6 +38,7 @@ func NewDynamicProxy(option RouterOption) (*Router, error) {
 		routingRules:     []*RoutingRule{},
 		loadBalancer:     option.LoadBalancer,
 		rateLimitCounter: RequestCountPerIpTable{},
+		captchaHandler:   captchaHandler,
 	}
 
 	thisRouter.mux = &ProxyHandler{
@@ -37,6 +46,11 @@ func NewDynamicProxy(option RouterOption) (*Router, error) {
 	}
 
 	return &thisRouter, nil
+}
+
+// NewCaptchaHandler creates a new CAPTCHA handler
+func NewCaptchaHandler() (*captcha.Handler, error) {
+	return captcha.NewHandler()
 }
 
 // Update TLS setting in runtime. Will restart the proxy server

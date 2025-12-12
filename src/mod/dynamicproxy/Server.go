@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"imuslab.com/zoraxy/mod/dynamicproxy/captcha"
 )
 
 /*
@@ -53,6 +55,15 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/*
+		CAPTCHA Verification Endpoint
+	*/
+	// Handle CAPTCHA verification requests
+	if strings.HasPrefix(r.URL.Path, "/.zoraxy/captcha/verify") {
+		h.handleCaptchaVerify(w, r)
+		return
+	}
+
+	/*
 		Host Routing
 	*/
 	//Extract request host to see if any proxy rule is matched
@@ -78,12 +89,49 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		/* Exploit Detection */
 		if sep.detector != nil {
 			if sep.detector.CheckIsAttack(w, r) {
-				statusCode := 403
-				if sep.detector != nil {
-					statusCode = sep.detector.GetResponseStatusCode()
+				// Check if CAPTCHA mitigation is enabled
+				if sep.MitigationAction == 4 && sep.CaptchaConfig != nil && sep.CaptchaConfig.Enabled {
+					// Check if request should bypass CAPTCHA
+					if !captcha.ShouldBypassCaptcha(r.URL.Path, sep.CaptchaConfig.BypassPaths) {
+						// Check if user has valid CAPTCHA session
+						captchaHandler, ok := h.Parent.captchaHandler.(*captcha.Handler)
+						if ok && captchaHandler != nil {
+							if !captchaHandler.CheckSession(r, sep.RootOrMatchingDomain) {
+								// No valid session - show CAPTCHA challenge
+								redirectURL := captcha.GetRedirectURL(r)
+								captchaHandler.ShowChallenge(w, r, int(sep.CaptchaConfig.Provider), sep.CaptchaConfig.SiteKey, redirectURL)
+								h.Parent.logRequest(r, false, 403, "captcha-challenge", domainOnly, "challenge", sep)
+								return
+							}
+							// Valid session - allow through
+						}
+					}
+				} else {
+					// Non-CAPTCHA mitigation - block as usual
+					statusCode := 403
+					if sep.detector != nil {
+						statusCode = sep.detector.GetResponseStatusCode()
+					}
+					h.Parent.logRequest(r, false, statusCode, "exploit-blocked", domainOnly, "blocked", sep)
+					return
 				}
-				h.Parent.logRequest(r, false, statusCode, "exploit-blocked", domainOnly, "blocked", sep)
-				return
+			}
+		}
+
+		/* CAPTCHA Gating (Always-On Mode) */
+		// If CAPTCHA is enabled in always-on mode, check session even if no exploit detected
+		if sep.CaptchaConfig != nil && sep.CaptchaConfig.Enabled && sep.CaptchaConfig.AlwaysOn {
+			if !captcha.ShouldBypassCaptcha(r.URL.Path, sep.CaptchaConfig.BypassPaths) {
+				captchaHandler, ok := h.Parent.captchaHandler.(*captcha.Handler)
+				if ok && captchaHandler != nil {
+					if !captchaHandler.CheckSession(r, sep.RootOrMatchingDomain) {
+						// No valid session - show CAPTCHA challenge
+						redirectURL := captcha.GetRedirectURL(r)
+						captchaHandler.ShowChallenge(w, r, int(sep.CaptchaConfig.Provider), sep.CaptchaConfig.SiteKey, redirectURL)
+						h.Parent.logRequest(r, false, 403, "captcha-gate", domainOnly, "gate", sep)
+						return
+					}
+				}
 			}
 		}
 
@@ -271,4 +319,41 @@ func (h *ProxyHandler) serve404PageWithTemplate(w http.ResponseWriter, r *http.R
 	} else {
 		w.Write(template)
 	}
+}
+
+// Handle CAPTCHA verification requests
+func (h *ProxyHandler) handleCaptchaVerify(w http.ResponseWriter, r *http.Request) {
+	// Get domain to find the endpoint
+	domainOnly := r.Host
+	if strings.Contains(r.Host, ":") {
+		hostPath := strings.Split(r.Host, ":")
+		domainOnly = hostPath[0]
+	}
+
+	// Find the proxy endpoint
+	sep := h.Parent.GetProxyEndpointFromHostname(domainOnly)
+	if sep == nil {
+		// Try root endpoint
+		sep = h.Parent.Root
+	}
+
+	if sep == nil || sep.CaptchaConfig == nil || !sep.CaptchaConfig.Enabled {
+		http.Error(w, "CAPTCHA not configured", http.StatusBadRequest)
+		return
+	}
+
+	// Get CAPTCHA handler
+	captchaHandler, ok := h.Parent.captchaHandler.(*captcha.Handler)
+	if !ok || captchaHandler == nil {
+		http.Error(w, "CAPTCHA handler not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Handle verification
+	sessionTTL := sep.CaptchaConfig.SessionTTL
+	if sessionTTL == 0 {
+		sessionTTL = captcha.DefaultSessionTTL
+	}
+
+	captchaHandler.HandleVerify(w, r, int(sep.CaptchaConfig.Provider), sep.CaptchaConfig.SecretKey, sep.RootOrMatchingDomain, sessionTTL)
 }
