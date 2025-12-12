@@ -22,11 +22,8 @@ func (h *ProxyHandler) handleCaptchaCheck(w http.ResponseWriter, r *http.Request
 		return false
 	}
 
-	// Get client IP
-	clientIP := getClientIP(r)
-
-	// Check if client has a valid captcha session
-	if h.Parent.Option.CaptchaManager.HasValidSession(clientIP) {
+	// Check if client has a valid captcha session cookie
+	if h.Parent.Option.CaptchaManager.HasValidSessionFromRequest(r) {
 		return false
 	}
 

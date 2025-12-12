@@ -1,6 +1,8 @@
 package captcha
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +22,9 @@ const (
 	ProviderGoogleRecaptcha   CaptchaProvider = "google_recaptcha"
 	ProviderCloudflareTurnstile CaptchaProvider = "cloudflare_turnstile"
 	ProviderDisabled          CaptchaProvider = "disabled"
+
+	// Cookie name for captcha session
+	CaptchaSessionCookie = "zoraxy_captcha_session"
 )
 
 // CaptchaConfig stores the configuration for captcha providers
@@ -34,16 +39,16 @@ type CaptchaConfig struct {
 
 // CaptchaSession stores validated captcha sessions
 type CaptchaSession struct {
-	IP        string
+	SessionID  string
 	ValidUntil time.Time
-	Provider  CaptchaProvider
+	Provider   CaptchaProvider
 }
 
 // Manager handles captcha verification and session management
 type Manager struct {
 	config   *CaptchaConfig
 	db       *database.Database
-	sessions map[string]*CaptchaSession // Key: IP address
+	sessions map[string]*CaptchaSession // Key: Session ID (from cookie)
 	mu       sync.RWMutex
 	client   *http.Client
 }
@@ -172,8 +177,8 @@ func (m *Manager) GetSiteKey() string {
 	return m.config.SiteKey
 }
 
-// VerifyToken verifies a captcha token from the client
-func (m *Manager) VerifyToken(token string, clientIP string) (bool, error) {
+// VerifyToken verifies a captcha token from the client and returns a session ID
+func (m *Manager) VerifyToken(token string, clientIP string) (string, error) {
 	m.mu.RLock()
 	provider := m.config.Provider
 	secretKey := m.config.SecretKey
@@ -189,19 +194,20 @@ func (m *Manager) VerifyToken(token string, clientIP string) (bool, error) {
 	case ProviderCloudflareTurnstile:
 		success, err = m.verifyCloudfllareTurnstile(token, clientIP, secretKey)
 	default:
-		return false, errors.New("invalid captcha provider")
+		return "", errors.New("invalid captcha provider")
 	}
 
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	if success {
-		// Create session for this IP
-		m.createSession(clientIP, provider)
+		// Create session and return session ID
+		sessionID := m.createSession(provider)
+		return sessionID, nil
 	}
 
-	return success, nil
+	return "", errors.New("captcha verification failed")
 }
 
 // verifyGoogleRecaptcha verifies a Google reCAPTCHA token
@@ -266,24 +272,34 @@ func (m *Manager) verifyCloudfllareTurnstile(token, clientIP, secretKey string) 
 	return result.Success, nil
 }
 
-// createSession creates a validated captcha session for an IP address
-func (m *Manager) createSession(clientIP string, provider CaptchaProvider) {
+// generateSessionID generates a random session ID
+func generateSessionID() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+// createSession creates a validated captcha session and returns the session ID
+func (m *Manager) createSession(provider CaptchaProvider) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.sessions[clientIP] = &CaptchaSession{
-		IP:         clientIP,
+	sessionID := generateSessionID()
+	m.sessions[sessionID] = &CaptchaSession{
+		SessionID:  sessionID,
 		ValidUntil: time.Now().Add(time.Duration(m.config.ExpiryTime) * time.Second),
 		Provider:   provider,
 	}
+
+	return sessionID
 }
 
-// HasValidSession checks if an IP address has a valid captcha session
-func (m *Manager) HasValidSession(clientIP string) bool {
+// HasValidSession checks if a session ID has a valid captcha session
+func (m *Manager) HasValidSession(sessionID string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	session, exists := m.sessions[clientIP]
+	session, exists := m.sessions[sessionID]
 	if !exists {
 		return false
 	}
@@ -291,12 +307,22 @@ func (m *Manager) HasValidSession(clientIP string) bool {
 	return time.Now().Before(session.ValidUntil)
 }
 
-// InvalidateSession removes a captcha session for an IP address
-func (m *Manager) InvalidateSession(clientIP string) {
+// HasValidSessionFromRequest checks if the request has a valid captcha session cookie
+func (m *Manager) HasValidSessionFromRequest(r *http.Request) bool {
+	cookie, err := r.Cookie(CaptchaSessionCookie)
+	if err != nil {
+		return false
+	}
+
+	return m.HasValidSession(cookie.Value)
+}
+
+// InvalidateSession removes a captcha session for a session ID
+func (m *Manager) InvalidateSession(sessionID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	delete(m.sessions, clientIP)
+	delete(m.sessions, sessionID)
 }
 
 // cleanupExpiredSessions periodically removes expired sessions
@@ -307,9 +333,9 @@ func (m *Manager) cleanupExpiredSessions() {
 	for range ticker.C {
 		m.mu.Lock()
 		now := time.Now()
-		for ip, session := range m.sessions {
+		for sessionID, session := range m.sessions {
 			if now.After(session.ValidUntil) {
-				delete(m.sessions, ip)
+				delete(m.sessions, sessionID)
 			}
 		}
 		m.mu.Unlock()

@@ -54,19 +54,34 @@ func (m *Manager) HandleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get client IP
+	// Get client IP for captcha provider verification
 	clientIP := getClientIP(r)
 
-	// Verify the token
-	success, err := m.VerifyToken(req.Token, clientIP)
+	// Verify the token and get session ID
+	sessionID, err := m.VerifyToken(req.Token, clientIP)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
+	// Set session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     CaptchaSessionCookie,
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   m.config.ExpiryTime,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": success,
+		"success": true,
 	})
 }
 
@@ -91,8 +106,7 @@ func (m *Manager) HandleChallengePage(w http.ResponseWriter, r *http.Request) {
 
 // HandleCheckSession checks if a client has a valid captcha session
 func (m *Manager) HandleCheckSession(w http.ResponseWriter, r *http.Request) {
-	clientIP := getClientIP(r)
-	hasValidSession := m.HasValidSession(clientIP)
+	hasValidSession := m.HasValidSessionFromRequest(r)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

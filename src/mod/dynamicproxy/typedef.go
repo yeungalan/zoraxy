@@ -72,7 +72,7 @@ type RouterOption struct {
 	/* Security */
 	CaptchaManager interface {
 		IsEnabled() bool
-		HasValidSession(clientIP string) bool
+		HasValidSessionFromRequest(r *http.Request) bool
 	} //Captcha manager for bot protection
 
 	OAuthAccessManager interface {
