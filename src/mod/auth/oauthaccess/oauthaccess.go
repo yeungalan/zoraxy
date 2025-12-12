@@ -89,6 +89,7 @@ type TokenResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 	IDToken      string `json:"id_token,omitempty"`
+	Scope        string `json:"scope,omitempty"`
 }
 
 // NewManager creates a new OAuth Access manager
