@@ -259,7 +259,7 @@ func (m *Manager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 // CheckAuth checks if a request has valid OAuth authentication
 // Returns the session if authenticated, nil otherwise
-func (m *Manager) CheckAuth(r *http.Request) *OAuthSession {
+func (m *Manager) CheckAuth(r *http.Request) interface{} {
 	cookie, err := r.Cookie(SessionCookieName)
 	if err != nil {
 		return nil
